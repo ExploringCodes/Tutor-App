@@ -56,7 +56,7 @@ const Quiz = ({ user, API_BASE_URL, subject, topic, subtopic, onCompleteQuiz }) 
         }
       );
 
-      const { question, hardness_level, message, attempt_id } = response.data;
+      const { question, hardness_level, message, attempt_id, score, questions_tried } = response.data;
       if (question) {
         setCurrentQuestion(question);
         setHardnessLevel(hardness_level);
@@ -66,10 +66,16 @@ const Quiz = ({ user, API_BASE_URL, subject, topic, subtopic, onCompleteQuiz }) 
         setIsAnswerIncorrect(false);
         setShowCongrats(false);
         setIsTimerPaused(false);
+        // Update score and questions tried from response
+        setScore(score || 0);
+        setQuestionsTried(questions_tried || 0);
       } else if (message) {
         setIsComplete(true);
         setCompletionMessage(message);
         setAttemptId(attempt_id);
+        // Update score and questions tried for completion
+        setScore(score || 0);
+        setQuestionsTried(questions_tried || 0);
       }
     } catch (error) {
       console.error('Error fetching quiz question:', error);
@@ -102,9 +108,9 @@ const Quiz = ({ user, API_BASE_URL, subject, topic, subtopic, onCompleteQuiz }) 
     };
 
     // Increment score and questionsTried
-    setQuestionsTried((prev) => prev + 1);
+    //setQuestionsTried((prev) => prev + 1);
     if (isCorrect) {
-      setScore((prev) => prev + 1);
+     // setScore((prev) => prev + 1);
       setShowCongrats(true);
       setIsTimerPaused(true);
       setTimeout(async () => {
@@ -188,74 +194,74 @@ const Quiz = ({ user, API_BASE_URL, subject, topic, subtopic, onCompleteQuiz }) 
   }
 
   return (
-  <div className="practice-quiz-container">
-    <h2>Quiz: {subject} - {topic} - {subtopic}</h2>
-    <div className="quiz-header">
-      <p>Question {questionsTried + 1} | Difficulty Level: {hardnessLevel}</p>
-      <Stopwatch reset={timerReset} onTimeExpired={handleTimeExpired} pause={isTimerPaused} />
-      <p>Score: {score} / {questionsTried}</p>
-    </div>
-    <div className="integrity-score">
-      <span>Integrity Score</span>
-      <span>{integrityScore}%</span>
-    </div>
-    <IntegrityScore integrityScore={integrityScore} cheatScore={cheatScore} />
-    <div className="question-container">
-      <h4>{currentQuestion.question}</h4>
-      <div className="options">
-        {['a', 'b', 'c', 'd'].map((option) => (
-          <div key={option} className="option">
-            <input
-              type="radio"
-              id={`q-${currentQuestion.id}-${option}`}
-              name={`question-${currentQuestion.id}`}
-              value={option}
-              checked={selectedOption === option}
-              onChange={() => handleAnswerSelect(option)}
-              disabled={isAnswerSubmitted}
-            />
-            <label htmlFor={`q-${currentQuestion.id}-${option}`}>
-              {option.toUpperCase()}: {currentQuestion[`option_${option}`]}
-            </label>
-          </div>
-        ))}
+    <div className="practice-quiz-container">
+      <h2>Quiz: {subject} - {topic} - {subtopic}</h2>
+      <div className="quiz-header">
+        <p>Question {questionsTried + 1} | Difficulty Level: {hardnessLevel}</p>
+        <Stopwatch reset={timerReset} onTimeExpired={handleTimeExpired} pause={isTimerPaused} />
+        <p>Score: {score} / {questionsTried}</p>
       </div>
-    </div>
-    {showCongrats && (
-      <div className="modal-overlay">
-        <div className="modal-content">
-          <div className="feedback correct">
-            <h3>Correct!</h3>
-            <p>Well done! You selected the right answer.</p>
-            <p>Great speed!</p>
-            <p>Moving to a more challenging question...</p>
-          </div>
+      <div className="integrity-score">
+        <span>Integrity Score</span>
+        <span>{integrityScore}%</span>
+      </div>
+      <IntegrityScore integrityScore={integrityScore} cheatScore={cheatScore} />
+      <div className="question-container">
+        <h4>{currentQuestion.question}</h4>
+        <div className="options">
+          {['a', 'b', 'c', 'd'].map((option) => (
+            <div key={option} className="option">
+              <input
+                type="radio"
+                id={`q-${currentQuestion.id}-${option}`}
+                name={`question-${currentQuestion.id}`}
+                value={option}
+                checked={selectedOption === option}
+                onChange={() => handleAnswerSelect(option)}
+                disabled={isAnswerSubmitted}
+              />
+              <label htmlFor={`q-${currentQuestion.id}-${option}`}>
+                {option.toUpperCase()}: {currentQuestion[`option_${option}`]}
+              </label>
+            </div>
+          ))}
         </div>
       </div>
-    )}
-    {isAnswerSubmitted && isAnswerIncorrect && (
-      <div className="modal-overlay">
-        <div className="modal-content">
-          <div className="feedback incorrect">
-            <h3>Incorrect</h3>
-            <p>Your answer was incorrect.</p>
-            <p>
-              <strong>Correct Answer:</strong> {currentQuestion.correct_option.toUpperCase()}: {currentQuestion[`option_${currentQuestion.correct_option}`]}
-            </p>
-            <p className="explanation">
-              <strong>Explanation:</strong> {currentQuestion.explanation}
-            </p>
-          </div>
-          <div className="action-buttons">
-            <button onClick={handleNextQuestion} className="next-button">
-              Next Question
-            </button>
+      {showCongrats && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="feedback correct">
+              <h3>Correct!</h3>
+              <p>Well done! You selected the right answer.</p>
+              <p>Great speed!</p>
+              <p>Moving to a more challenging question...</p>
+            </div>
           </div>
         </div>
-      </div>
-    )}
-  </div>
-);
+      )}
+      {isAnswerSubmitted && isAnswerIncorrect && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="feedback incorrect">
+              <h3>Incorrect</h3>
+              <p>Your answer was incorrect.</p>
+              <p>
+                <strong>Correct Answer:</strong> {currentQuestion.correct_option.toUpperCase()}: {currentQuestion[`option_${currentQuestion.correct_option}`]}
+              </p>
+              <p className="explanation">
+                <strong>Explanation:</strong> {currentQuestion.explanation}
+              </p>
+            </div>
+            <div className="action-buttons">
+              <button onClick={handleNextQuestion} className="next-button">
+                Next Question
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default Quiz;

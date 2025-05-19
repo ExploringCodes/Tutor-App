@@ -290,7 +290,6 @@ class PracticeQuizAnswerSubmission(BaseModel):
     is_correct: bool
     current_hardness_level: int
     questions_tried: int
-
 # # Model for selecting subject, topic, subtopic
 # class SelectionRequest(BaseModel):
 #     name: str
@@ -307,6 +306,8 @@ class QuizQuestionResponse(BaseModel):
     hardness_level: int
     message: Optional[str] = None
     attempt_id: Optional[int] = None
+    score:Optional[int]=None,
+    questions_tried:Optional[int]=None
     class Config:
         from_attributes = True
 
@@ -329,6 +330,9 @@ class ExplainResponse(BaseModel):
     total:Optional[int]=None
     current:Optional[int]=None
     initial_response: Optional[List[str]] = None
+
+
+
 
 # Root endpoint
 @app.get("/")
@@ -581,8 +585,52 @@ async def quiz(
 
     hardness_level = db.query(Quiz1Score).filter(Quiz1Score.attempt_id == db.query(Quiz1Attempt).filter(Quiz1Attempt.user_id == user_id).order_by(Quiz1Attempt.started_at.desc()).first().id).first().student_level if db.query(Quiz1Score).filter(Quiz1Score.attempt_id == db.query(Quiz1Attempt).filter(Quiz1Attempt.user_id == user_id).order_by(Quiz1Attempt.started_at.desc()).first().id).first() else 5
     attempt_id = None
+    score = 0
+    questions_tried = 0
+    # Check for existing incomplete attempt
+    last_attempt = (
+        db.query(QuizAttempt)
+        .join(UserSelection, QuizAttempt.selection_id == UserSelection.id)
+        .filter(
+            UserSelection.user_id == user_id,
+            UserSelection.subject_id == subject_obj.id,
+            UserSelection.topic_id == topic_obj.id,
+            UserSelection.subtopic_id == subtopic_obj.id,
+            QuizAttempt.completed_at == None
+        )
+        .order_by(QuizAttempt.started_at.desc())
+        .first()
+    )
 
-    if submission:
+    if last_attempt and not submission:
+        # Resume incomplete attempt
+        attempt_id = last_attempt.id
+        # Get questions tried and score
+        quiz_answers = db.query(QuizAnswer).filter(QuizAnswer.attempt_id == attempt_id).all()
+        questions_tried = len(quiz_answers)
+        score = sum(1 for ans in quiz_answers if ans.is_correct)
+        # Get the latest hardness level from the last answer
+        last_answer = (
+            db.query(QuizAnswer)
+            .filter(QuizAnswer.attempt_id == attempt_id)
+            .order_by(QuizAnswer.id.desc())
+            .first()
+        )
+        if last_answer:
+            # Fetch the submission to determine hardness level
+            last_submission = db.query(QuizAnswer).filter(
+                QuizAnswer.attempt_id == attempt_id,
+                QuizAnswer.question_id == last_answer.question_id
+            ).first()
+            hardness_level = db.query(MCQ.hardness_level).join(QuizAnswer, MCQ.id == QuizAnswer.question_id).filter(QuizAnswer.attempt_id == attempt_id).order_by(QuizAnswer.id.desc()).first()[0] if quiz_answers else 5
+            
+            
+            if last_submission.is_correct:
+                hardness_level = min(hardness_level + 1, 10)
+            else:
+                hardness_level = max(hardness_level - 1, 1)
+    
+    elif submission:
         # Validate question and attempt
         question = db.query(MCQ).filter(MCQ.id == submission.question_id).first()
         if not question:
@@ -614,6 +662,12 @@ async def quiz(
             hardness_level = min(hardness_level + 1, 10)
         else:
             hardness_level = max(hardness_level - 1, 1)
+            
+            
+        # Update score and questions tried
+        quiz_answers = db.query(QuizAnswer).filter(QuizAnswer.attempt_id == attempt_id).all()
+        questions_tried = len(quiz_answers)
+        score = sum(1 for ans in quiz_answers if ans.is_correct)
 
         # Check if quiz is complete (10 questions)
         if question_number >= 10:
@@ -636,14 +690,17 @@ async def quiz(
             attempt.completed_at = datetime.utcnow()
             db.commit()
 
-            return QuizQuestionResponse(
+            return QuizQuestionResponse (
                 hardness_level=hardness_level,
                 message="You have completed the quiz! Check your scores.",
-                attempt_id=submission.attempt_id
+                attempt_id=submission.attempt_id,
+                score=score,
+                questions_tried=questions_tried
             )
         
         attempt_id = submission.attempt_id
     else:
+        print("I am here ")
         # Create new user selection and quiz attempt
         user_selection = UserSelection(
             user_id=user_id,
@@ -663,6 +720,7 @@ async def quiz(
         db.commit()
         db.refresh(quiz_attempt)
         attempt_id = quiz_attempt.id
+        print("after new attempt id created")
 
     # Get answered question IDs
     answered_question_ids = db.query(QuizAnswer.question_id).filter(QuizAnswer.attempt_id == attempt_id).all()
@@ -680,54 +738,33 @@ async def quiz(
         .first()
     )
 
-    # If no question at current level, check upper then lower levels
+   # If no question found, try random search at same level (ignoring answered questions)
     if not next_question:
-        current_level = hardness_level
-        # Check upper levels (up to 10)
-        for level in range(current_level + 1, 11):
-            next_question = (
-                db.query(MCQ)
-                .filter(
-                    MCQ.subtopic_id == subtopic_obj.id,
-                    MCQ.hardness_level == level,
-                    ~MCQ.id.in_(answered_question_ids)
-                )
-                .order_by(func.random())
-                .first()
+        next_question = (
+            db.query(MCQ)
+            .filter(
+                MCQ.subtopic_id == subtopic_obj.id,
+                MCQ.hardness_level == hardness_level
             )
-            if next_question:
-                hardness_level = level
-                break
-
-        # If no upper level question found, check lower levels (down to 1)
-        if not next_question:
-            for level in range(current_level - 1, 0, -1):
-                next_question = (
-                    db.query(MCQ)
-                    .filter(
-                        MCQ.subtopic_id == subtopic_obj.id,
-                        MCQ.hardness_level == level,
-                        ~MCQ.id.in_(answered_question_ids)
-                    )
-                    .order_by(func.random())
-                    .first()
-                )
-                if next_question:
-                    hardness_level = level
-                    break
-
+            .order_by(func.random())
+            .first()
+        )
         # If still no question found, quiz is complete
-        if not next_question:
-            return QuizQuestionResponse(
-                hardness_level=hardness_level,
-                message="No questions available at any difficulty level. Quiz completed!",
-                attempt_id=attempt_id
-            )
+    if not next_question:
+        return QuizQuestionResponse(
+            hardness_level=hardness_level,
+            message="No questions available \n Select Another Item",
+            attempt_id=attempt_id,
+            score=score,
+            questions_tried=questions_tried
+        )
 
     return QuizQuestionResponse(
         question=MCQResponse.from_orm(next_question),
         hardness_level=hardness_level,
-        attempt_id=attempt_id
+        attempt_id=attempt_id,
+        score=score,
+        questions_tried=questions_tried
     )
 
 # Updated function to handle various LaTeX commands in the first line
@@ -1026,7 +1063,6 @@ Instructions:
 
 
     return ExplainResponse(answer=answer,image=image_data)
-
 
 
 
