@@ -347,6 +347,7 @@ def read_root():
 @app.get("/subjects/", response_model=List[SubjectBase])
 async def get_subjects(db: Session = Depends(get_db)):
     subjects = db.query(Subject).all()
+    print("here are subjects,\n\n",subjects)
     if not subjects:
         raise HTTPException(status_code=404, detail="No subjects found")
     return subjects
