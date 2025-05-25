@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './Selection.css';
 
-const Selection = ({ user, API_BASE_URL, onSelectionSubmit }) => {
+const Selection = ({ user, API_BASE_URL, onSelectionSubmit,logInteraction }) => {
   const [subjects, setSubjects] = useState([]);
   const [topics, setTopics] = useState([]);
   const [subtopics, setSubtopics] = useState([]);
   const [selectedSubject, setSelectedSubject] = useState('');
   const [selectedTopic, setSelectedTopic] = useState('');
   const [selectedSubtopic, setSelectedSubtopic] = useState('');
+
 
   // Fetch subjects when the component mounts
   useEffect(() => {
@@ -83,7 +84,7 @@ const Selection = ({ user, API_BASE_URL, onSelectionSubmit }) => {
           withCredentials: true
         }
       );
-
+      logInteraction(user.user_id, 'button_click', 'Clicked Confirm Selection');
       // Notify App.js of the confirmed selection
       onSelectionSubmit({ selectedSubject, selectedTopic, selectedSubtopic });
       alert('Selection confirmed! Use the navigation buttons to proceed.');
@@ -105,6 +106,7 @@ const Selection = ({ user, API_BASE_URL, onSelectionSubmit }) => {
               setSelectedSubject(e.target.value);
               setSelectedTopic('');
               setSelectedSubtopic('');
+              logInteraction(user.user_id, 'dropdown_select', `Selected subject: ${e.target.value}`);
             }}
             required
           >
@@ -124,6 +126,7 @@ const Selection = ({ user, API_BASE_URL, onSelectionSubmit }) => {
             onChange={(e) => {
               setSelectedTopic(e.target.value);
               setSelectedSubtopic('');
+              logInteraction(user.user_id, 'dropdown_select', `Selected topic: ${e.target.value}`);
             }}
             disabled={!selectedSubject}
             required
@@ -141,9 +144,12 @@ const Selection = ({ user, API_BASE_URL, onSelectionSubmit }) => {
           <label>Subtopic:</label>
           <select
             value={selectedSubtopic}
-            onChange={(e) => setSelectedSubtopic(e.target.value)}
+            onChange={(e) =>{ setSelectedSubtopic(e.target.value)
+              logInteraction(user.user_id, 'dropdown_select', `Selected subtopic: ${e.target.value}`);}
+            }
             disabled={!selectedTopic}
             required
+
           >
             <option value="">Select a Subtopic</option>
             {subtopics.map((subtopic) => (

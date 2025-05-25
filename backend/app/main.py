@@ -5,8 +5,8 @@ from sqlalchemy.orm import Session
 from typing import List,Optional
 from datetime import datetime
 from .database.session import SessionLocal, Base, engine
-from .database.models import  Subject, Topic, Subtopic, MCQ, User, UserSelection, QuizAttempt, QuizAnswer, QuizScore,UserProgress,Diagram,Quiz1,Quiz1Attempt,Quiz1Score,PractiseAnswer,PractiseAttempt,FacialExpression
-from .schemas.models import SubjectBase, TopicBase, SubtopicBase,UserModel
+from .database.models import  Subject, Topic, Subtopic, MCQ, User, UserSelection, QuizAttempt, QuizAnswer, QuizScore,UserProgress,Diagram,Quiz1,Quiz1Attempt,Quiz1Score,PractiseAnswer,PractiseAttempt,FacialExpression,UserInteraction
+from .schemas.models import SubjectBase, TopicBase, SubtopicBase,UserModel,UserInteractionCreate
 from .schemas.quizzes import QuizAnswerSubmission, QuizQuestionResponse, PracticeQuizAnswerSubmission, PracticeQuizQuestionResponse,MCQResponse
 from .schemas.explains import ExplainQuery,ExplainResponse
 from .schemas.selections import SelectionRequest
@@ -615,6 +615,31 @@ Instructions:
 
 
     return ExplainResponse(answer=answer,image=image_data)
+
+
+@app.post("/interactions")
+async def save_interaction(interaction: UserInteractionCreate, db: Session = Depends(get_db), request: Request = None):
+    # Check session for authenticated user
+    session_user = request.session.get("user")
+    if not session_user or session_user.get("id") != interaction.user_id:
+        raise HTTPException(status_code=401, detail="Unauthorized: Invalid or missing session")
+    
+    # Validate user
+    user = db.query(User).filter(User.id == interaction.user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail=f"User ID {interaction.user_id} not found")
+    
+    # Proceed with saving the interaction
+    db_interaction = UserInteraction(
+        user_id=interaction.user_id,
+        interaction_type=interaction.interaction_type,
+        details=interaction.details
+    )
+    db.add(db_interaction)
+    db.commit()
+    logger.info(f"Interaction logged: user_id={interaction.user_id}, type={interaction.interaction_type}, details={interaction.details}")
+    return {"message": "Interaction saved"}
+
 
 
 @app.on_event("startup")

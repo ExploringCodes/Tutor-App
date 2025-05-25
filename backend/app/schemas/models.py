@@ -63,3 +63,8 @@ class UserModel(BaseModel):
     email: str
     name: str
     picture: Optional[str] = None
+
+class UserInteractionCreate(BaseModel):
+    user_id: int
+    interaction_type: str
+    details: str

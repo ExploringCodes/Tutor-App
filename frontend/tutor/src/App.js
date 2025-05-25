@@ -17,6 +17,24 @@ function App() {
     selectedSubtopic: ''
   });
   const API_BASE_URL = 'http://localhost:8000';
+  const logInteraction = async (userId, type, details) => {
+    if (!userId || typeof userId !== 'number') {
+        console.error('Invalid userId for logging interaction:', userId);
+        return;
+    }
+    try {
+        await axios.post(`${API_BASE_URL}/interactions`, {
+            user_id: userId,
+            interaction_type: type,
+            details: details
+        },{
+            withCredentials: true
+        });
+        console.log('Interaction logged:', type, details);
+    } catch (error) {
+        console.error('Error logging interaction:', error);
+    }
+};
 
   useEffect(() => {
     fetch(`${API_BASE_URL}/api/user`, {
@@ -117,7 +135,7 @@ function App() {
         return <Quiz1 user={user} API_BASE_URL={API_BASE_URL} onCompleteQuiz={onQuiz1Complete} />;
       case 'selection':
         return (
-          <Selection user={user} API_BASE_URL={API_BASE_URL} onSelectionSubmit={onSelectionSubmit} />
+          <Selection user={user} API_BASE_URL={API_BASE_URL} onSelectionSubmit={onSelectionSubmit} logInteraction={logInteraction} />
         );
       case 'explains':
         return (

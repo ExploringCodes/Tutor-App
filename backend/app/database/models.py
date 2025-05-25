@@ -6,6 +6,7 @@ from sqlalchemy.dialects.postgresql import ARRAY
 
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy import LargeBinary  # Add this import for binary data
+from datetime import datetime
 class Subject(Base):
     __tablename__ = "subjects"
 
@@ -258,3 +259,11 @@ class FacialExpression(Base):
     name = Column(String, nullable=False)
     facial_expression = Column(String, nullable=False)
     image = Column(LargeBinary, nullable=False)
+    
+class UserInteraction(Base):
+    __tablename__ = "user_interactions"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    interaction_type = Column(String, nullable=False)  # e.g., "dropdown_select", "button_click"
+    details = Column(String)  # e.g., "Selected subject: English"
+    timestamp = Column(DateTime, default=datetime.utcnow)
